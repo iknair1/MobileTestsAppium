@@ -1,0 +1,59 @@
+ jobs:
+    - job: BuildAndRunAcceptanceTestsOnUWPApp
+      pool:
+        vmImage: 'windows-2019'    
+      steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          targetPath: '$(Pipeline.Workspace)'
+          artifactName: ${{ parameters.UWPBuildArtifact }}
+
+      - task: NuGetCommand@2
+        displayName: 'Authenticate with Azure DevOps NuGet'
+        inputs:
+          command: custom
+          arguments: sources update -Name "ZonalSharedPackages" -Username "vsts" -Password "$(System.AccessToken)" -StorePasswordInClearText -ConfigFile nuget.config
+
+      - task: PowerShell@2
+        displayName: 'Install the UWP app'
+        inputs:
+          filePath: '$(Pipeline.Workspace)/Zonal.App.UWP_${{ parameters.AppVersionNumber }}_Test/Add-AppDevPackage.ps1'
+          arguments: '-Force'
+
+      - task: Windows Application Driver@0
+        displayName: 'Start WinAppDriver'
+        inputs:
+          OperationType: 'Start'
+          WADArguments: '4723'
+          AgentResolution: '1080p'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'Build Acceptance Test Project'
+        inputs:
+          command: build
+          projects: ${{ parameters.AcceptanceTestProject }}
+          feedsToUse: 'config'
+          nugetConfigPath: 'nuget.config'
+          arguments: '--configuration UWP'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'Run Acceptance Tests'
+        inputs:
+          command: test
+          projects: ${{ parameters.AcceptanceTestProject }}
+          arguments: '--configuration UWP --filter TestCategory=UWP'
+        continueOnError: 'true'
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish Screenshots
+        inputs:
+          targetPath: '$(Pipeline.Workspace)/s/PRTests/Screenshots'
+          artifactName: 'Test Artifacts'
+          publishLocation: 'pipeline'
+        continueOnError: 'true'
+
+      - task: Windows Application Driver@0
+        displayName: 'Stop WinAppDriver'
+        inputs:
+          OperationType: 'Stop'

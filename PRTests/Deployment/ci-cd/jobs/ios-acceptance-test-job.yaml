@@ -1,0 +1,41 @@
+ jobs:
+    - job: BuildAndRunAcceptanceTestsOnIOSApp
+      pool:
+        vmImage: 'vs2017-win2016'    
+      steps:
+      - download: current
+        artifact: ${{ parameters.iOSBuildArtifact }}
+      
+      - task: NuGetCommand@2
+        displayName: 'Authenticate with Azure DevOps NuGet'
+        inputs:
+          command: custom
+          arguments: sources update -Name "ZonalSharedPackages" -Username "vsts" -Password "$(System.AccessToken)" -StorePasswordInClearText -ConfigFile nuget.config
+
+      - task: BrowserStackConfig@0
+        displayName: 'BrowserStack configuration setup.'
+        inputs:
+          BrowserStackServiceEndPoint: 'BrowserStack service connection'
+
+      - task: BrowserStackAppUploader@0
+        displayName: 'BrowserStack App Uploader'
+        inputs:
+          appPath: '$(Pipeline.Workspace)/${{ parameters.iOSBuildArtifact }}/${{ parameters.IPAFile }}'
+          appCustomId: ZonalIOSApp$(CurrentBuildId)
+
+      - task: DotNetCoreCLI@2
+        displayName: 'Build Acceptance Test Project'
+        inputs:
+          command: build
+          projects: ${{ parameters.AcceptanceTestProject }}
+          feedsToUse: 'config'
+          nugetConfigPath: 'nuget.config'
+          arguments: '--configuration iOS'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'Run Acceptance Tests'
+        inputs:
+          command: test
+          projects: ${{ parameters.AcceptanceTestProject }}
+          arguments: '--configuration iOS --filter TestCategory=iOS'
+

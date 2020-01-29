@@ -1,0 +1,23 @@
+variables:
+- name: Environment
+  value: int
+- name: BuildType
+  value: Develop-PR
+- name: AppCenterIosId
+  value: 'b37efe94-b669-4772-9f24-e920b11e33cc'
+- name: AppCenterAndroidId
+  value: 'bcc0dfd6-5a98-4f68-9b83-1de2b15a0221'
+- name: AppCenterUwpId
+  value: '97139bad-28ee-488d-89d8-28656396b36b'
+- name: Auth0Audience
+  value: https://core-api-dev/
+- name: Auth0Domain
+  value: https://zonal-dev.eu.auth0.com
+- name: Auth0ClientId
+  value: 'xiq97nlgAjKkzZMe1QINzb5njMok16rH'
+- name: Auth0BusinessIdClaimKey
+  value: 'https://znl.io/businessid'
+- name: Auth0SiteIdsClaimKey
+  value: 'https://znl.io/siteids'
+- name: TransactionLinkUri
+  value: https://aks1.znl-dev03.com/mock/api/akru-merchantlink/transactionlink/  

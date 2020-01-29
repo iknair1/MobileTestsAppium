@@ -1,0 +1,221 @@
+name: $(Date:yyyy.MM.dd)$(Rev:.r)
+
+trigger: none
+
+resources:
+  repositories:
+    - repository: templates
+      type: git
+      name: Zonal DevOps/BuildTemplates
+
+variables:
+  - template: environments/znl-aks1.yaml@templates
+  - template: variables/shared.yaml@templates
+  - template: ../common-variables.yaml
+  - template: znl-pr-variables.yaml
+  
+stages:
+  - stage: UnitTestBuild
+    displayName: Build and Quality
+    variables:
+      Build_Output_Folder: $(System.DefaultWorkingDirectory)/output/
+      
+    jobs:
+    - job: Unit_Tests
+
+      pool:
+        name: "Hosted VS2017"
+
+      steps:
+        - template: steps/nuget-feed-auth.yaml@templates
+          parameters:
+            Nuget_Config: ${{ variables.Nuget_Config_Location }}
+
+        - template: steps/sonar-init.yaml@templates
+          parameters:
+            Sonar_Coverage_Exclusions: ${{ variables.Sonar_Coverage_Exclusions }}
+            Sonar_ProjectKey: ${{ variables.Sonar_ProjectKey }}
+            Sonar_ProjectName: ${{ variables.Sonar_ProjectName }}  
+
+        - task: DotNetCoreCLI@2
+          displayName: Build Shell App Solution With UnitTest
+          inputs:
+            projects: "${{ variables.Build_Projects }}"
+            arguments: "--configuration ${{ variables.BuildConfiguration }} /p:Platform=Tests"
+
+        - task: VSTest@2
+          displayName: Run Unit Tests
+          inputs:
+            testAssemblyVer2: |
+              **\*UnitTests*.dll
+              !**\*TestAdapter.dll
+              !**\obj\**
+            publishTestResults: true
+            codeCoverageEnabled: true
+            runInParallel: true
+            continueOnError: true # Allow sonarcloud to finish collecting data
+
+        - template: steps/sonar-validate.yaml@templates
+
+  - stage: AndroidAppBuild
+    displayName: Android App Build
+    dependsOn: [UnitTestBuild]
+    variables:
+      Platform: ${{ variables.AndroidPlatform }}
+      OutputDirectory: '$(build.binariesDirectory)/${{ variables.BuildConfiguration }}'
+      AppBuildNumber: $[counter('${{ variables.AppVersionMajorMinor}}{{variables.BuildType}}', 0)]
+      AppVersionNumber: ${{ variables.AppVersionMajorMinor}}$(AppBuildNumber)  
+    jobs:
+    - template: ../jobs/android-build-job-speedy.yaml
+      parameters:
+        Platform: $(Platform)
+        OutputDirectory: $(OutputDirectory)
+        AppBuildNumber: $(AppBuildNumber)
+        AppVersionNumber: $(AppVersionNumber)
+        BuildConfiguration: ${{ variables.BuildConfiguration }}
+        ConfigFileFolderPath: '$(Build.Repository.LocalPath)/${{ variables.ConfigFileFolderPath}}/'
+        FileEncryptorPath: '$(Build.Repository.LocalPath)/${{ variables.FileEncryptorPath}}'
+        ConfigFileName: ${{ variables.ConfigFileName}}
+        BuildType: ${{ variables.BuildType }}
+        ZonalWebsiteUrl: ${{ variables.ZonalWebsiteUrl }}
+        AkruWebsiteUrl: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.AkruWebsitePath }}
+        AuditRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.AuditRequestPath }}
+        ProductsRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.ProductsRequestPath }}
+        OperatorsRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.OperatorsRequestPath }}
+        TaxRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.TaxRequestPath }}
+        PaymentRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.PaymentRequestPath }}
+        ChecksRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.ChecksRequestPath }}
+        TablesRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.TablesRequestPath }}
+        FinanceRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.FinanceRequestPath }}
+        FinanceMockRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}${{ variables.FinanceMockRequestPath }}
+        PrintConfigurationRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.PrintConfigurationRequestPath }}
+        DeviceRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.DeviceRequestPath }}
+        SiteRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.SiteRequestPath }}
+        OffersConfigurationRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.OffersConfigurationPath }}
+        ConfigRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.ConfigRequestPath }}
+        AppCenterIosId: ${{ variables.AppCenterIosId }}
+        AppCenterAndroidId: ${{ variables.AppCenterAndroidId }}
+        AppCenterUwpId: ${{ variables.AppCenterUwpId }}
+        AndroidXMLDirectory: ${{ variables.AndroidXMLDirectory }}
+        SolutionFile: ${{ variables.Build_Projects }}
+        AndroidProject: ${{ variables.AndroidProject }} 
+        BundleArtifactFolder: $(Build.Artifactstagingdirectory)
+        BundleBuildPath: '${{ variables.AndroidBundleBuildFolder }}'
+        AndroidKeystorePassword: $(AndroidKeystorePassword)
+        AndroidKeystoreFile: ${{ variables.AndroidKeystoreFile }} 
+        AndroidKeystoreAlias: ${{ variables.AndroidKeystoreAlias }}
+        AndroidBuildArtifact: ${{ variables.AndroidBuildArtifact }}
+        Auth0Audience: ${{ variables.Auth0Audience }}
+        Auth0Domain: ${{ variables.Auth0Domain }}
+        Auth0ClientId: ${{ variables.Auth0ClientId }}
+        Auth0BusinessIdClaimKey: ${{ variables.Auth0BusinessIdClaimKey }}
+        Auth0SiteIdsClaimKey: ${{ variables.Auth0SiteIdsClaimKey }}
+        TransactionLinkUri: ${{ variables.TransactionLinkUri }}
+
+  - stage: iOSAppBuild
+    displayName: iOS App Build
+    dependsOn: [UnitTestBuild]
+    variables:
+      AppBuildNumber: $[counter('${{ variables.AppVersionMajorMinor}}{{variables.BuildType}}', 0)]
+    jobs:
+    - template: ../jobs/ios-build-job-speedy.yaml
+      parameters:
+        BundleArtifactFolder: $(Build.Artifactstagingdirectory)
+        BundleBuildPath: '${{ variables.iOSBundleBuildFolder }}'
+        SolutionFile: ${{ variables.Build_Projects }}
+        BuildConfiguration: ${{ variables.BuildConfiguration }}
+        AppVersionNumber: ${{ variables.AppVersionMajorMinor}}$(AppBuildNumber).0
+        iOSCertSecureFile: ${{ variables.iOSCertSecureFile }}
+        ProvProfileSecureFile: ${{ variables.ProvProfileSecureFile }}
+        P12password: $(P12password)
+        iOSInfoPListPath: ${{ variables.iOSInfoPListPath }}
+        ConfigFileFolderPath: '$(Build.Repository.LocalPath)/${{ variables.ConfigFileFolderPath}}/'
+        FileEncryptorPath: '$(Build.Repository.LocalPath)/${{ variables.FileEncryptorPath}}'
+        ConfigFileName: ${{ variables.ConfigFileName}}
+        BuildType: ${{ variables.BuildType }}
+        ZonalWebsiteUrl: ${{ variables.ZonalWebsiteUrl }}
+        AkruWebsiteUrl: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.AkruWebsitePath }}
+        AuditRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.AuditRequestPath }}
+        ProductsRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.ProductsRequestPath }}
+        OperatorsRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.OperatorsRequestPath }}
+        TaxRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.TaxRequestPath }}
+        PaymentRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.PaymentRequestPath }}
+        ChecksRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.ChecksRequestPath }}
+        TablesRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.TablesRequestPath }}
+        FinanceRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.FinanceRequestPath }}
+        FinanceMockRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}${{ variables.FinanceMockRequestPath }}
+        PrintConfigurationRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.PrintConfigurationRequestPath }}
+        DeviceRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.DeviceRequestPath }}
+        SiteRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.SiteRequestPath }}
+        OffersConfigurationRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.OffersConfigurationPath }}
+        ConfigRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.ConfigRequestPath }}
+        AppCenterIosId: ${{ variables.AppCenterIosId }}
+        AppCenterAndroidId: ${{ variables.AppCenterAndroidId }}
+        AppCenterUwpId: ${{ variables.AppCenterUwpId }}
+        iOSBuildArtifact:  ${{ variables.iOSBuildArtifact }}
+        Auth0Audience: ${{ variables.Auth0Audience }}
+        Auth0Domain: ${{ variables.Auth0Domain }}
+        Auth0ClientId: ${{ variables.Auth0ClientId }}
+        Auth0BusinessIdClaimKey: ${{ variables.Auth0BusinessIdClaimKey }}
+        Auth0SiteIdsClaimKey: ${{ variables.Auth0SiteIdsClaimKey }}
+        TransactionLinkUri: ${{ variables.TransactionLinkUri }}
+
+  - stage: UWPAppBuild
+    displayName: UWP App Build
+    dependsOn: []
+    variables:
+      AppBuildNumber: $[counter('${{ variables.AppVersionMajorMinor}}{{variables.BuildType}}', 0)]
+    jobs:
+    - template: ../jobs/uwp-build-job-speedy.yaml
+      parameters:
+        BundleBuildPath: '${{ variables.UWPBundleBuildFolder }}'
+        BundleArtifactFolder: $(Build.Artifactstagingdirectory)
+        SolutionFile: ${{ variables.Build_Projects }}
+        BuildConfiguration: ${{ variables.BuildConfiguration }}
+        BuildPlatform: ${{ variables.UWPBuildPlatform }}
+        AppxPackageDir: $(Build.Artifactstagingdirectory)\${{ variables.AppxPackageDir }}
+        AppxManifestPath: ${{ variables.AppxManifestPath }}
+        AppxManifestFile: ${{ variables.AppxManifestFile }}
+        AppVersionNumber: ${{ variables.AppVersionMajorMinor}}$(AppBuildNumber).0
+        ConfigFileFolderPath: '$(Build.Repository.LocalPath)\${{ variables.ConfigFileFolderPath}}\'
+        FileEncryptorPath: '$(Build.Repository.LocalPath)\${{ variables.FileEncryptorPath}}'
+        ConfigFileName: ${{ variables.ConfigFileName}}
+        BuildType: ${{ variables.BuildType }}
+        ZonalWebsiteUrl: ${{ variables.ZonalWebsiteUrl }}
+        AkruWebsiteUrl: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.AkruWebsitePath }}
+        AuditRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.AuditRequestPath }}
+        ProductsRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.ProductsRequestPath }}
+        OperatorsRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.OperatorsRequestPath }}
+        TaxRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.TaxRequestPath }}
+        PaymentRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.PaymentRequestPath }}
+        ChecksRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.ChecksRequestPath }}
+        TablesRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.TablesRequestPath }}
+        FinanceRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.FinanceRequestPath }}
+        FinanceMockRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}${{ variables.FinanceMockRequestPath }}
+        PrintConfigurationRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.PrintConfigurationRequestPath }}
+        DeviceRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.DeviceRequestPath }}
+        SiteRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.SiteRequestPath }}
+        OffersConfigurationRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.OffersConfigurationPath }}
+        ConfigRequestUri: ${{ variables.Default_Protocol }}${{ variables.K8s_Domain_Url }}/${{ variables.Environment }}${{ variables.ConfigRequestPath }}
+        AppCenterIosId: ${{ variables.AppCenterIosId }}
+        AppCenterAndroidId: ${{ variables.AppCenterAndroidId }}
+        AppCenterUwpId: ${{ variables.AppCenterUwpId }}
+        UWPBuildArtifact: ${{ variables.UWPBuildArtifact }}
+        Auth0Audience: ${{ variables.Auth0Audience }}
+        Auth0Domain: ${{ variables.Auth0Domain }}
+        Auth0ClientId: ${{ variables.Auth0ClientId }}
+        Auth0BusinessIdClaimKey: ${{ variables.Auth0BusinessIdClaimKey }}
+        Auth0SiteIdsClaimKey: ${{ variables.Auth0SiteIdsClaimKey }}
+        TransactionLinkUri: ${{ variables.TransactionLinkUri }}
+
+  - stage: AcceptanceTestsRunStage
+    displayName: Acceptance Tests on Android App
+    dependsOn: [AndroidAppBuild]
+    variables:
+      CurrentBuildId: '$(build.buildId)'
+    jobs:    
+    - template: ../jobs/android-acceptance-test-job.yaml
+      parameters:
+        AndroidBuildArtifact: ${{ variables.AndroidBuildArtifact }}
+        APKFile: ${{ variables.APKFile }}
+        AcceptanceTestProject: ${{ variables.AcceptanceTestProject }}
