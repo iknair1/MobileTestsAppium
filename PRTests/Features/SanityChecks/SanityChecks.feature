@@ -5,6 +5,6 @@ Scenario: User journey covering manager authentication to link the device and op
     Given the manager login page is displayed 
 	When a single site manager authenticates with valid credentials
 	And the device is linked
-	And the akru module is selected
+	And the test module is selected
 	And valid operator code is entered using the keypad
-	Then the EPOS screen is displayed
+	Then the test screen is displayed
