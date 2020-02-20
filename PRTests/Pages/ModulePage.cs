@@ -5,6 +5,6 @@ namespace Zonal.App.Shell.PRTests.Pages
 {
     public class ModulePage : BaseStepDefinition
     {
-        public AppiumWebElement AkruModuleButton => Driver.FindElementByAccessibilityId("AkruModuleButton");
+        public AppiumWebElement TestModuleButton => Driver.FindElementByAccessibilityId("TestModuleButton");
     }
 }
