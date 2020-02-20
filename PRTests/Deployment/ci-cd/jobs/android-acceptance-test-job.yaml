@@ -21,7 +21,7 @@
         displayName: 'BrowserStack App Uploader'
         inputs:
           appPath: '$(Pipeline.Workspace)/${{ parameters.AndroidBuildArtifact }}/${{ parameters.APKFile }}'
-          appCustomId: ZonalAndroidApp$(CurrentBuildId)
+          appCustomId: AndroidApp$(CurrentBuildId)
 
       - task: DotNetCoreCLI@2
         displayName: 'Build Acceptance Test Project'
