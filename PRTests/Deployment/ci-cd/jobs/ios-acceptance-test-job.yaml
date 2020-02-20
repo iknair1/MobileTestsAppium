@@ -21,7 +21,7 @@
         displayName: 'BrowserStack App Uploader'
         inputs:
           appPath: '$(Pipeline.Workspace)/${{ parameters.iOSBuildArtifact }}/${{ parameters.IPAFile }}'
-          appCustomId: ZonalIOSApp$(CurrentBuildId)
+          appCustomId: IOSApp$(CurrentBuildId)
 
       - task: DotNetCoreCLI@2
         displayName: 'Build Acceptance Test Project'
