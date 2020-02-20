@@ -13,7 +13,7 @@
         displayName: 'Authenticate with Azure DevOps NuGet'
         inputs:
           command: custom
-          arguments: sources update -Name "ZonalSharedPackages" -Username "vsts" -Password "$(System.AccessToken)" -StorePasswordInClearText -ConfigFile nuget.config
+          arguments: sources update -Name "SharedPackages" -Username "vsts" -Password "$(System.AccessToken)" -StorePasswordInClearText -ConfigFile nuget.config
 
       - task: PowerShell@2
         displayName: 'Install the UWP app'
