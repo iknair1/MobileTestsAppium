@@ -36,11 +36,11 @@ namespace Zonal.App.Shell.PRTests.Steps
 
         #region Then
 
-        [When(@"the akru module is selected")]
-        public void WhenTheAkruModuleIsSelected()
+        [When(@"the test module is selected")]
+        public void WhenTheTestModuleIsSelected()
         {
-            wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementToBeClickable(_modulePage.AkruModuleButton));
-            _modulePage.AkruModuleButton.Click();
+            wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementToBeClickable(_modulePage.TestModuleButton));
+            _modulePage.TestModuleButton.Click();
         }
         #endregion
     }
